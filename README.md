@@ -1,3 +1,5 @@
+Inspired by [esr/inventory](https://gitlab.com/esr/inventory)
+
 # inventory
 
 A simple TUI to see every package installed on your machine - across pacman, AUR, cargo, npm globals, and pip - in one searchable, filterable list.
@@ -39,10 +41,6 @@ You probably want to hit `e` to filter to explicitly-installed packages, then `o
 | `Shift+X` | Uninstall the selected package (with confirmation) |
 | `Shift+R` | Reload all sources |
 | `q` | Quit |
-
-## Inspired by
-
-[esr/inventory](https://gitlab.com/esr/inventory)
 
 <img width="871" alt="inventory main view" src="./screenshot.png" />
 
