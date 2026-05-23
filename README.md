@@ -1,6 +1,6 @@
 Inspired by [esr/inventory](https://gitlab.com/esr/inventory)
 
-# inventory
+# inventui
 
 A simple TUI to see every package installed on your machine - across pacman, AUR, cargo, npm globals, and pip - in one searchable, filterable list.
 
