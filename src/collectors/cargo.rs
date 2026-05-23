@@ -1,8 +1,17 @@
+//! Cargo collector. Lists crates installed via `cargo install` — i.e. binaries
+//! living under `$CARGO_HOME/bin`. Cargo does not track per-crate install dates,
+//! so we approximate by stat'ing `.crates.toml`.
+
 use crate::collectors::Collector;
 use crate::package::{Package, PackageSource};
 use std::path::Path;
 use std::process::Command;
 
+/// Crates installed via `cargo install`. `cargo install --list` formats one
+/// crate per "name vX.Y.Z:" header line; we ignore the indented binary lines
+/// that follow each header. There's no per-crate install date in cargo's
+/// metadata, so we approximate using the mtime of `.crates.toml` — meaning
+/// every crate shares the date of the most recent install.
 pub struct CargoCollector;
 
 impl Collector for CargoCollector {
@@ -50,6 +59,7 @@ impl Collector for CargoCollector {
                         install_date,
                         install_reason: None,
                         is_aur: false,
+                        is_omarchy: false,
                         url: Some(format!("https://crates.io/crates/{}", name)),
                         size: None,
                     });
@@ -61,6 +71,7 @@ impl Collector for CargoCollector {
     }
 }
 
+/// Used when CARGO_HOME isn't set — cargo's default install root is `$HOME/.cargo`.
 fn dirs_fallback() -> Option<String> {
     let home = std::env::var("HOME").ok()?;
     Some(format!("{}/.cargo", home))

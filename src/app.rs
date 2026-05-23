@@ -1,23 +1,49 @@
+//! Application state and the business logic that mutates it.
+//!
+//! `App` is the single owner of every list, filter, and mode flag. The event
+//! loop in `main.rs` reads keystrokes and calls methods on `App`; `ui.rs`
+//! reads `App` immutably and renders it. Nothing in this module touches
+//! ratatui or stdout — that separation keeps rendering decisions away from
+//! filter/sort math.
+//!
+//! Notable cross-cutting design choices:
+//! - `source_filter` and `omarchy_filter` are independent controls (Tab and
+//!   `o` respectively). They `&&` together in `update_filtered`.
+//! - Sorting is performed on the *filtered* index list, not the underlying
+//!   packages — this keeps the source-of-truth stable and lets cycling
+//!   filters/sorts be cheap.
+//! - `details` is an `Option<PackageDetails>` populated lazily by the
+//!   `details` module when the user opens the `d` panel.
+
 use crate::collectors::Collector;
+use crate::details::PackageDetails;
 use crate::package::{Package, PackageSource};
 use std::collections::HashMap;
 use std::sync::mpsc;
 use std::thread;
 
-
+/// Which column drives the order of the visible table.
+///
+/// Version is intentionally not sortable — version strings are too noisy
+/// across pacman/cargo/npm/pip for a meaningful comparison to be worth the UI
+/// real estate. The remaining columns are cycled together with direction by
+/// `App::cycle_sort` (the `s` key): each press advances one slot in the
+/// sequence below.
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum SortColumn {
     Name,
-    Version,
     Source,
+    Size,
     InstallDate,
 }
 
 impl SortColumn {
+    /// Rotation order used by `App::cycle_sort` when flipping past descending.
     pub fn next(&self) -> Self {
         match self {
-            Self::Name => Self::Version,
-            Self::Version => Self::Source,
-            Self::Source => Self::InstallDate,
+            Self::Name => Self::Source,
+            Self::Source => Self::Size,
+            Self::Size => Self::InstallDate,
             Self::InstallDate => Self::Name,
         }
     }
@@ -25,45 +51,87 @@ impl SortColumn {
     pub fn label(&self) -> &'static str {
         match self {
             Self::Name => "Name",
-            Self::Version => "Version",
             Self::Source => "Source",
+            Self::Size => "Size",
             Self::InstallDate => "Installed",
         }
     }
 }
 
+/// Which package manager(s) to include in the visible list. Tab cycles through:
+/// All → Pacman (non-Omarchy) → Omarchy → Cargo → Npm → Pip → All.
+///
+/// Omarchy is a virtual source: its packages are technically `PackageSource::Pacman`
+/// with the `is_omarchy` flag set. We split it out here so the Tab cycle treats it
+/// as a first-class filter — matching how the user thinks about it.
 pub enum SourceFilter {
     All,
+    Pacman,
+    Omarchy,
     Specific(PackageSource),
 }
 
 impl SourceFilter {
     pub fn next(&self) -> Self {
-        let sources = PackageSource::all();
         match self {
-            Self::All => Self::Specific(sources[0]),
-            Self::Specific(current) => {
-                let idx = sources.iter().position(|s| s == current).unwrap_or(0);
-                if idx + 1 < sources.len() {
-                    Self::Specific(sources[idx + 1])
-                } else {
-                    Self::All
-                }
-            }
+            Self::All => Self::Pacman,
+            Self::Pacman => Self::Omarchy,
+            Self::Omarchy => Self::Specific(PackageSource::Cargo),
+            Self::Specific(PackageSource::Cargo) => Self::Specific(PackageSource::Npm),
+            Self::Specific(PackageSource::Npm) => Self::Specific(PackageSource::Pip),
+            Self::Specific(PackageSource::Pip) => Self::All,
+            // Pacman as a Specific value shouldn't appear, but if it does, fold it
+            // back into the canonical Self::Pacman branch.
+            Self::Specific(PackageSource::Pacman) => Self::Omarchy,
         }
     }
 
     pub fn label(&self) -> String {
         match self {
             Self::All => "All".to_string(),
+            Self::Pacman => "pacman".to_string(),
+            Self::Omarchy => "omarchy".to_string(),
             Self::Specific(s) => s.label().to_string(),
         }
     }
 }
 
+/// Drives how keystrokes are interpreted by the event loop in main.rs.
+///
+/// `Details` is a read-only modal overlay populated by `details::fetch`
+/// on demand; any keystroke (except none) dismisses it.
+#[derive(PartialEq)]
 pub enum InputMode {
     Normal,
     Search,
+    UninstallConfirm,
+    Details,
+}
+
+/// Filter for packages declared in the Omarchy base/other lists.
+/// Off = show all, Only = show only Omarchy packages, Exclude = hide them.
+pub enum OmarchyFilter {
+    Off,
+    Only,
+    Exclude,
+}
+
+impl OmarchyFilter {
+    pub fn next(&self) -> Self {
+        match self {
+            Self::Off => Self::Only,
+            Self::Only => Self::Exclude,
+            Self::Exclude => Self::Off,
+        }
+    }
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Off => "",
+            Self::Only => "[Omarchy]",
+            Self::Exclude => "[−Omarchy]",
+        }
+    }
 }
 
 pub struct App {
@@ -72,6 +140,7 @@ pub struct App {
     pub search_query: String,
     pub source_filter: SourceFilter,
     pub show_explicit_only: bool,
+    pub omarchy_filter: OmarchyFilter,
     pub sort_column: SortColumn,
     pub sort_ascending: bool,
     pub selected_index: usize,
@@ -81,6 +150,13 @@ pub struct App {
     pub loading: bool,
     pub loading_progress: String,
     pub source_counts: HashMap<PackageSource, usize>,
+    /// Subset of the pacman count that is also tagged as an Omarchy package.
+    /// Tracked separately so the status bar can show Omarchy as its own line
+    /// without inflating the pacman count.
+    pub omarchy_count: usize,
+    /// Lazily populated when the user opens the details panel (`d` key).
+    /// Cleared when the panel is dismissed. None means "panel not open".
+    pub details: Option<PackageDetails>,
 }
 
 impl Default for App {
@@ -91,6 +167,7 @@ impl Default for App {
             search_query: String::new(),
             source_filter: SourceFilter::All,
             show_explicit_only: false,
+            omarchy_filter: OmarchyFilter::Off,
             sort_column: SortColumn::Name,
             sort_ascending: true,
             selected_index: 0,
@@ -100,11 +177,19 @@ impl Default for App {
             loading: true,
             loading_progress: String::new(),
             source_counts: HashMap::new(),
+            omarchy_count: 0,
+            details: None,
         }
     }
 }
 
 impl App {
+    /// Refresh the package list by running every enabled collector.
+    ///
+    /// Each collector shells out to its package manager, which is the slow part
+    /// (pacman+expac in particular). They're independent, so we run one per
+    /// thread and gather results through a channel — overall load time becomes
+    /// the slowest collector instead of their sum.
     pub fn load(&mut self) {
         let collectors: Vec<Box<dyn Collector + Send>> = vec![
             Box::new(crate::collectors::pacman::PacmanCollector),
@@ -113,50 +198,47 @@ impl App {
             Box::new(crate::collectors::pip::PipCollector),
         ];
 
-        let (tx, rx) = mpsc::channel();
-        let collector_list: Vec<_> = collectors
-            .into_iter()
-            .filter(|c| c.enabled())
-            .collect();
-
-        let total = collector_list.len();
+        let enabled: Vec<_> = collectors.into_iter().filter(|c| c.enabled()).collect();
+        let total = enabled.len();
         if total == 0 {
             self.loading = false;
             self.status_message = "No supported package managers found".to_string();
             return;
         }
 
+        let (tx, rx) = mpsc::channel();
+        let mut handles = Vec::with_capacity(total);
+        for collector in enabled {
+            let tx = tx.clone();
+            handles.push(thread::spawn(move || {
+                let _ = tx.send(collector.collect());
+            }));
+        }
+        // Drop the original sender so `rx` closes once every worker is done.
+        drop(tx);
+
         let mut all_packages = Vec::new();
-        let mut completed = 0;
-
-        let handle = thread::spawn(move || {
-            for collector in collector_list {
-                let p = collector.collect();
-                let _ = tx.send(p);
-            }
-        });
-
         while let Ok(batch) = rx.recv() {
-            completed += 1;
             all_packages.extend(batch);
-            self.loading_progress = format!("Collected {}/{} sources...", completed, total);
-
-            if completed >= total {
-                break;
-            }
+        }
+        for h in handles {
+            let _ = h.join();
         }
 
-        let _ = handle.join();
-
-        all_packages.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        all_packages.sort_by_key(|pkg| pkg.name.to_lowercase());
 
         self.source_counts.clear();
+        self.omarchy_count = 0;
         for pkg in &all_packages {
             *self.source_counts.entry(pkg.source).or_insert(0) += 1;
+            if pkg.is_omarchy {
+                self.omarchy_count += 1;
+            }
         }
 
         self.packages = all_packages;
         self.loading = false;
+        self.loading_progress.clear();
         self.update_filtered();
         self.status_message = format!(
             "Loaded {} packages from {} sources",
@@ -173,6 +255,9 @@ impl App {
             .filter(|(_, pkg)| {
                 let source_match = match &self.source_filter {
                     SourceFilter::All => true,
+                    // Pacman slot deliberately excludes Omarchy — Omarchy has its own slot.
+                    SourceFilter::Pacman => pkg.source == PackageSource::Pacman && !pkg.is_omarchy,
+                    SourceFilter::Omarchy => pkg.is_omarchy,
                     SourceFilter::Specific(s) => pkg.source == *s,
                 };
 
@@ -188,7 +273,13 @@ impl App {
                 let explicit_match = !self.show_explicit_only
                     || pkg.install_reason.as_deref() == Some("explicit");
 
-                source_match && search_match && explicit_match
+                let omarchy_match = match self.omarchy_filter {
+                    OmarchyFilter::Off => true,
+                    OmarchyFilter::Only => pkg.is_omarchy,
+                    OmarchyFilter::Exclude => !pkg.is_omarchy,
+                };
+
+                source_match && search_match && explicit_match && omarchy_match
             })
             .map(|(i, _)| i)
             .collect();
@@ -215,11 +306,20 @@ impl App {
                     if asc { cmp } else { cmp.reverse() }
                 });
             }
-            SortColumn::Version => {
+            SortColumn::Size => {
+                // Option<f64> has no Ord (NaN), so compare via partial_cmp and
+                // treat missing sizes as "smaller than anything known" — that
+                // puts unknowns at the top in ascending and at the bottom in
+                // descending, which matches the natural "small → big" reading.
                 self.filtered_indices.sort_by(|a, b| {
-                    let va = &self.packages[*a].version;
-                    let vb = &self.packages[*b].version;
-                    let cmp = compare_versions(va, vb);
+                    let sa = self.packages[*a].size;
+                    let sb = self.packages[*b].size;
+                    let cmp = match (sa, sb) {
+                        (Some(x), Some(y)) => x.partial_cmp(&y).unwrap_or(std::cmp::Ordering::Equal),
+                        (None, Some(_)) => std::cmp::Ordering::Less,
+                        (Some(_), None) => std::cmp::Ordering::Greater,
+                        (None, None) => std::cmp::Ordering::Equal,
+                    };
                     if asc { cmp } else { cmp.reverse() }
                 });
             }
@@ -242,14 +342,19 @@ impl App {
         }
     }
 
-    pub fn toggle_sort(&mut self) {
-        self.sort_ascending = !self.sort_ascending;
-        self.sort_filtered();
-    }
-
-    pub fn cycle_sort_column(&mut self) {
-        self.sort_column = self.sort_column.next();
-        self.sort_ascending = true;
+    /// Advance the sort by one step. Each press of `s` walks through the
+    /// sequence: Name↑ → Name↓ → Source↑ → Source↓ → Size↑ → Size↓ →
+    /// Installed↑ → Installed↓ → Name↑ → …  so the user can reach any
+    /// (column, direction) combination with a single key.
+    pub fn cycle_sort(&mut self) {
+        if self.sort_ascending {
+            // Same column, flip to descending.
+            self.sort_ascending = false;
+        } else {
+            // Advance to the next column and reset to ascending.
+            self.sort_column = self.sort_column.next();
+            self.sort_ascending = true;
+        }
         self.sort_filtered();
     }
 
@@ -267,6 +372,13 @@ impl App {
         self.update_filtered();
     }
 
+    pub fn toggle_omarchy(&mut self) {
+        self.omarchy_filter = self.omarchy_filter.next();
+        self.selected_index = 0;
+        self.scroll_offset = 0;
+        self.update_filtered();
+    }
+
     pub fn open_selected_url(&self) {
         if self.filtered_indices.is_empty() || self.selected_index >= self.filtered_indices.len() {
             return;
@@ -275,8 +387,44 @@ impl App {
         if let Some(ref url) = self.packages[pkg_idx].url {
             let _ = std::process::Command::new("xdg-open")
                 .arg(url)
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
                 .spawn();
         }
+    }
+
+    pub fn selected_package(&self) -> Option<&Package> {
+        if self.filtered_indices.is_empty() || self.selected_index >= self.filtered_indices.len() {
+            None
+        } else {
+            let pkg_idx = self.filtered_indices[self.selected_index];
+            Some(&self.packages[pkg_idx])
+        }
+    }
+
+    /// Populate `self.details` from the currently-selected package and switch
+    /// to `InputMode::Details`. Shells out to a package-manager tool — fast
+    /// for one package, but not free, so we only call this on key press.
+    pub fn open_details(&mut self) {
+        if let Some(pkg) = self.selected_package() {
+            self.details = Some(crate::details::fetch(pkg));
+            self.input_mode = InputMode::Details;
+        }
+    }
+
+    /// Tear down the details panel and return to normal navigation.
+    pub fn close_details(&mut self) {
+        self.details = None;
+        self.input_mode = InputMode::Normal;
+    }
+
+    pub fn uninstall_command(&self) -> Option<Vec<String>> {
+        self.selected_package().map(|pkg| match pkg.source {
+            PackageSource::Pacman => vec!["sudo".into(), "pacman".into(), "-Rns".into(), pkg.name.clone()],
+            PackageSource::Npm => vec!["npm".into(), "uninstall".into(), "-g".into(), pkg.name.clone()],
+            PackageSource::Pip => vec!["pip".into(), "uninstall".into(), "-y".into(), pkg.name.clone()],
+            PackageSource::Cargo => vec!["cargo".into(), "uninstall".into(), pkg.name.clone()],
+        })
     }
 
     pub fn select_next(&mut self) {
@@ -337,54 +485,3 @@ impl App {
     }
 }
 
-struct VersionPart {
-    nums: Vec<u64>,
-    suffix: String,
-}
-
-impl VersionPart {
-    fn parse(s: &str) -> Self {
-        let s = s.trim();
-        let mut nums = Vec::new();
-        let mut suffix = String::new();
-        let mut current_num = String::new();
-        let mut in_suffix = false;
-
-        for ch in s.chars() {
-            if ch.is_ascii_digit() && !in_suffix {
-                current_num.push(ch);
-            } else if ch == '.' && !in_suffix {
-                if !current_num.is_empty() {
-                    nums.push(current_num.parse().unwrap_or(0));
-                    current_num.clear();
-                }
-            } else {
-                in_suffix = true;
-                suffix.push(ch);
-            }
-        }
-
-        if !current_num.is_empty() {
-            nums.push(current_num.parse().unwrap_or(0));
-        }
-
-        Self { nums, suffix }
-    }
-}
-
-fn compare_versions(a: &str, b: &str) -> std::cmp::Ordering {
-    let va = VersionPart::parse(a);
-    let vb = VersionPart::parse(b);
-
-    let max_len = va.nums.len().max(vb.nums.len());
-    for i in 0..max_len {
-        let na = va.nums.get(i).copied().unwrap_or(0);
-        let nb = vb.nums.get(i).copied().unwrap_or(0);
-        match na.cmp(&nb) {
-            std::cmp::Ordering::Equal => continue,
-            other => return other,
-        }
-    }
-
-    va.suffix.cmp(&vb.suffix)
-}

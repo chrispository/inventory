@@ -1,7 +1,13 @@
+//! Npm collector. Limited to globally-installed packages (`npm list -g
+//! --depth=0 --json`) — per-project node_modules are out of scope for this
+//! tool. The JSON shape we parse is `{ "dependencies": { name: { version } } }`.
+
 use crate::collectors::Collector;
 use crate::package::{Package, PackageSource};
 use std::process::Command;
 
+/// Globally-installed npm packages, queried via `npm list -g --depth=0 --json`.
+/// npm doesn't expose install dates or sizes for global installs, so those fields stay None.
 pub struct NpmCollector;
 
 impl Collector for NpmCollector {
@@ -24,39 +30,32 @@ impl Collector for NpmCollector {
             Err(_) => return Vec::new(),
         };
 
-        let mut packages = Vec::new();
+        let Some(deps) = parsed.get("dependencies").and_then(|d| d.as_object()) else {
+            return Vec::new();
+        };
 
-        if let Some(deps) = parsed.get("dependencies").and_then(|d| d.as_object()) {
-            for (name, info) in deps {
+        deps.iter()
+            .map(|(name, info)| {
                 let version = info
                     .get("version")
                     .and_then(|v| v.as_str())
                     .unwrap_or("unknown")
                     .to_string();
 
-                let url = if name.starts_with('@') {
-                    let (scope, rest) = name
-                        .split_once('/')
-                        .map(|(s, r)| (s, r))
-                        .unwrap_or((&name, ""));
-                    Some(format!("https://www.npmjs.com/package/@{}/{}", scope, rest))
-                } else {
-                    Some(format!("https://www.npmjs.com/package/{}", name))
-                };
-
-                packages.push(Package {
+                Package {
                     name: name.clone(),
                     version,
                     source: PackageSource::Npm,
                     install_date: None,
                     install_reason: None,
                     is_aur: false,
-                    url,
+                    is_omarchy: false,
+                    // The package name already encodes any "@scope/" prefix,
+                    // so a single format covers both scoped and unscoped names.
+                    url: Some(format!("https://www.npmjs.com/package/{}", name)),
                     size: None,
-                });
-            }
-        }
-
-        packages
+                }
+            })
+            .collect()
     }
 }
