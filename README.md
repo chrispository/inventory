@@ -1,29 +1,47 @@
-**inventory**
+# inventory
 
-a simple way to see all your installed packages on omarchy.
+A simple TUI to see every package installed on your machine — across pacman, AUR, cargo, npm globals, and pip — in one searchable, filterable list.
 
-you probably want to hit e to change to explicit, then o twice til you get "-Omarchy" to show you packages you have explicitly installed.
+Built for [Omarchy](https://omarchy.org), but works on any Arch-based system.
 
-enter to view the package on AUR/npm/etc. shift + x to uninstall selected program.
+You probably want to hit `e` to filter to explicitly-installed packages, then `o` twice until you see `[−Omarchy]` — that leaves you with just the things *you* installed.
 
-j/k: nav
+`Enter` opens the package's web page (AUR / archlinux.org / crates.io / npmjs / pypi). `Shift+X` uninstalls. `d` opens a details panel.
 
-/search
+## Keyboard shortcuts
 
-Tab: source
+### Navigation
+| Key | Action |
+|---|---|
+| `j` / `↓` | Down one row |
+| `k` / `↑` | Up one row |
+| `J` / `K` | Jump 5 rows |
+| `Ctrl-d` / `Ctrl-u` | Half-page down / up |
+| `PageDown` / `PageUp` | Full page down / up |
+| `g` / `Home` | Jump to top |
+| `G` / `End` | Jump to bottom |
 
-e: explicit
+### Filtering & sorting
+| Key | Action |
+|---|---|
+| `/` | Live search — filters as you type. `↑/↓/PgUp/PgDn` exit search and move the selection; `Enter`/`Esc` just exit search. |
+| `Esc` | (in normal mode) Clear search query |
+| `Tab` | Cycle source: All → pacman → omarchy → cargo → npm → pip → All |
+| `e` | Toggle explicit-only (pacman install reason) |
+| `o` | Cycle Omarchy filter: off → only → exclude |
+| `s` | Cycle sort: Name↑ → Name↓ → Source↑ → Source↓ → Size↑ → Size↓ → Installed↑ → Installed↓ |
 
-o: omarchy
+### Actions
+| Key | Action |
+|---|---|
+| `Enter` | Open the selected package's web page |
+| `d` | Show details (description, license, size, dependencies, required-by, …) |
+| `Shift+X` | Uninstall the selected package (with confirmation) |
+| `Shift+R` | Reload all sources |
+| `q` | Quit |
 
-s: sort
+## Inspired by
 
-r: reverse
-
-Ent: open
-
-shift + x: uninstall
-
-q: quit
+[esr/inventory](https://gitlab.com/esr/inventory)
 
 <img width="871" height="1005" alt="image" src="https://github.com/user-attachments/assets/c8e88ed4-6c9e-45f3-a5a2-729a6ffc1e5e" />
