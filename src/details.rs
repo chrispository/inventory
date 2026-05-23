@@ -1,7 +1,7 @@
 //! Per-package "details" panel data and lazy fetchers.
 //!
 //! When the user presses `d` on a row, `fetch` is called for just that one
-//! package. We never collect this info during the bulk load — it's only
+//! package. We never collect this info during the bulk load - it's only
 //! shelled out for on demand because pacman -Qi/pip show are slow when run
 //! per-package across hundreds of rows.
 //!
@@ -19,7 +19,7 @@ use std::process::Command;
 /// When true, opening the details panel for an npm package walks every
 /// globally-installed package.json under `$(npm root -g)` and collects those
 /// whose `dependencies` map references the target package. Correct, but adds
-/// noticeable latency (one disk read per global) — disabled by default.
+/// noticeable latency (one disk read per global) - disabled by default.
 /// Flip to `true` here, or comment out the call site in `fill_npm`, to toggle.
 const NPM_REVERSE_DEPS: bool = false;
 
@@ -181,7 +181,7 @@ fn fill_pip(d: &mut PackageDetails) {
             "Summary" => d.description = none_if_empty(&value),
             "License" => d.license = none_if_empty(&value),
             // Pip emits an empty `Home-page:` line when the package didn't set
-            // one — treat that as "no homepage" and fall back to pacman-style
+            // one - treat that as "no homepage" and fall back to pacman-style
             // override-only-if-unset behaviour.
             "Home-page"
                 if d.homepage.is_none() || d.homepage.as_deref() == Some("") =>
@@ -318,7 +318,7 @@ fn npm_reverse_deps(npm_root: &str, target: &str) -> Vec<String> {
 // Cargo
 // ---------------------------------------------------------------------------
 
-/// Cargo doesn't persist dependency info for installed binaries — `cargo
+/// Cargo doesn't persist dependency info for installed binaries - `cargo
 /// install --list` only knows the crate name, version, and provided binaries.
 /// We surface that limitation as a note so the user isn't left wondering why
 /// the deps sections are empty.

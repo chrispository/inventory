@@ -1,5 +1,5 @@
 //! All ratatui rendering lives here. Functions in this module take `&App`
-//! and never mutate it — every state change goes through `App` methods called
+//! and never mutate it - every state change goes through `App` methods called
 //! from the event loop in `main.rs`.
 //!
 //! Layout overview (top to bottom):
@@ -60,7 +60,7 @@ pub fn draw(f: &mut Frame, app: &App) {
     if app.input_mode == InputMode::UninstallConfirm {
         draw_uninstall_popup(f, area, app);
     }
-    // Details overlay sits on top of everything else — including the
+    // Details overlay sits on top of everything else - including the
     // uninstall popup, though they're mutually exclusive in practice.
     if let Some(details) = app.details.as_ref() {
         draw_details_popup(f, area, details);
@@ -182,14 +182,14 @@ fn build_details_lines<'a>(d: &'a PackageDetails) -> Vec<Line<'a>> {
     let mut out: Vec<Line> = Vec::new();
     out.push(Line::from(""));
 
-    // Header line: "foo 1.2.3 — pacman"
+    // Header line: "foo 1.2.3 - pacman"
     out.push(Line::from(vec![
         Span::raw("  "),
         Span::styled(d.name.clone(), bold_white),
         Span::raw(" "),
         Span::styled(format!("v{}", d.version), Style::new().fg(Color::White)),
         Span::raw("  "),
-        Span::styled(format!("— {}", d.source.label()), dim),
+        Span::styled(format!("- {}", d.source.label()), dim),
     ]));
 
     if let Some(desc) = &d.description {
@@ -306,7 +306,7 @@ fn draw_header(f: &mut Frame, area: Rect, app: &App) {
     let search = match app.input_mode {
         InputMode::Search => format!(" Search: {}│ ", app.search_query),
         // Details/UninstallConfirm/Normal all show the current query (if any)
-        // in passive form — they don't accept search input.
+        // in passive form - they don't accept search input.
         InputMode::Normal | InputMode::UninstallConfirm | InputMode::Details => {
             if app.search_query.is_empty() {
                 " /search ".to_string()
@@ -349,7 +349,7 @@ fn draw_help(f: &mut Frame, area: Rect, app: &App) {
     match app.input_mode {
         InputMode::Search => {
             let hint = Span::styled(
-                " filtering live — Enter: done  Esc: exit search ",
+                " filtering live - Enter: done  Esc: exit search ",
                 Style::new().bg(Color::DarkGray).fg(Color::Yellow),
             );
             let text = Line::from(hint);
@@ -362,7 +362,7 @@ fn draw_help(f: &mut Frame, area: Rect, app: &App) {
         }
         InputMode::Details => {
             let hint = Span::styled(
-                " details — any key closes ",
+                " details - any key closes ",
                 Style::new().bg(Color::DarkGray).fg(Color::Cyan),
             );
             f.render_widget(Paragraph::new(Line::from(hint)), area);
@@ -415,7 +415,7 @@ fn draw_table(f: &mut Frame, area: Rect, app: &App) {
     let header = Row::new(vec![
         Cell::from(sort_header("Name", app, SortColumn::Name)),
         Cell::from("Site"),
-        // Version is not sortable — version strings vary too much across
+        // Version is not sortable - version strings vary too much across
         // package managers to compare meaningfully.
         Cell::from("Version"),
         Cell::from(sort_header("Source", app, SortColumn::Source)),
@@ -456,7 +456,7 @@ fn draw_table(f: &mut Frame, area: Rect, app: &App) {
                 pkg.source.label().to_string()
             };
 
-            let size_str = pkg.size.map(|gb| format!("{:.2} GB", gb)).unwrap_or_else(|| "—".to_string());
+            let size_str = pkg.size.map(|gb| format!("{:.2} GB", gb)).unwrap_or_else(|| "-".to_string());
 
             let date_str = pkg
                 .install_date
@@ -466,7 +466,7 @@ fn draw_table(f: &mut Frame, area: Rect, app: &App) {
                         .single()
                         .map(|dt| dt.format("%Y-%m-%d").to_string())
                 })
-                .unwrap_or_else(|| "—".to_string());
+                .unwrap_or_else(|| "-".to_string());
 
             Row::new(vec![
                 Cell::from(name),
@@ -484,7 +484,7 @@ fn draw_table(f: &mut Frame, area: Rect, app: &App) {
         Constraint::Length(name_width),
         Constraint::Length(10), // Site
         Constraint::Length(20), // Version
-        Constraint::Length(10), // Source — widened from 8 so "Source ▲" has padding
+        Constraint::Length(10), // Source - widened from 8 so "Source ▲" has padding
         Constraint::Length(10), // Size
         Constraint::Length(12), // Installed
     ];
@@ -559,7 +559,7 @@ fn draw_status(f: &mut Frame, area: Rect, app: &App) {
         )
     } else {
         format!(
-            " {} — showing {} | {} ",
+            " {} - showing {} | {} ",
             parts.join(" "),
             app.filtered_indices.len(),
             app.status_message
@@ -598,7 +598,7 @@ fn truncate(s: &str, max: usize) -> String {
 
 fn short_site(url: &Option<String>) -> String {
     match url {
-        None => "—".to_string(),
+        None => "-".to_string(),
         Some(u) => {
             if u.contains("aur.archlinux") {
                 "aur".to_string()

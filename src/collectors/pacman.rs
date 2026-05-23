@@ -1,7 +1,7 @@
 //! Pacman collector. Uses `expac` (a fast, scriptable wrapper around the
 //! pacman DB) for the bulk query because `pacman -Q` doesn't expose install
 //! date / size / reason in a single pass. Falls back to nothing if expac
-//! isn't installed — see `enabled()`.
+//! isn't installed - see `enabled()`.
 
 use crate::collectors::Collector;
 use crate::package::{Package, PackageSource};
@@ -123,7 +123,7 @@ fn get_omarchy_packages() -> HashSet<String> {
     packages
 }
 
-/// Tiny percent-encoder for the archlinux.org search URL — avoids pulling in
+/// Tiny percent-encoder for the archlinux.org search URL - avoids pulling in
 /// a full URL-encoding crate for one query string.
 fn urlencoding(s: &str) -> String {
     let mut result = String::with_capacity(s.len());

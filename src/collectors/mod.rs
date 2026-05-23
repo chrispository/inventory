@@ -12,7 +12,7 @@ use crate::package::Package;
 /// One package source (pacman, cargo, npm, …). Implementations shell out to the
 /// underlying tool; `enabled` lets us skip sources whose binary isn't installed.
 pub trait Collector {
-    /// Cheap check — typically a `--version` call — used by App::load to skip
+    /// Cheap check - typically a `--version` call - used by App::load to skip
     /// sources that aren't available on this machine.
     fn enabled(&self) -> bool;
     /// Run the (potentially slow) tool and parse its output into Packages.

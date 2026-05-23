@@ -16,7 +16,7 @@ pub struct Package {
     pub source: PackageSource,
     /// Unix timestamp of install, when the collector can determine it.
     pub install_date: Option<i64>,
-    /// For pacman: "explicit" or "dependency" — drives the `e` filter.
+    /// For pacman: "explicit" or "dependency" - drives the `e` filter.
     pub install_reason: Option<String>,
     /// Pacman-only: was this installed from the AUR (foreign repo)?
     pub is_aur: bool,

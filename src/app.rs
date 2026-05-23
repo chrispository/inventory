@@ -3,14 +3,14 @@
 //! `App` is the single owner of every list, filter, and mode flag. The event
 //! loop in `main.rs` reads keystrokes and calls methods on `App`; `ui.rs`
 //! reads `App` immutably and renders it. Nothing in this module touches
-//! ratatui or stdout — that separation keeps rendering decisions away from
+//! ratatui or stdout - that separation keeps rendering decisions away from
 //! filter/sort math.
 //!
 //! Notable cross-cutting design choices:
 //! - `source_filter` and `omarchy_filter` are independent controls (Tab and
 //!   `o` respectively). They `&&` together in `update_filtered`.
 //! - Sorting is performed on the *filtered* index list, not the underlying
-//!   packages — this keeps the source-of-truth stable and lets cycling
+//!   packages - this keeps the source-of-truth stable and lets cycling
 //!   filters/sorts be cheap.
 //! - `details` is an `Option<PackageDetails>` populated lazily by the
 //!   `details` module when the user opens the `d` panel.
@@ -24,7 +24,7 @@ use std::thread;
 
 /// Which column drives the order of the visible table.
 ///
-/// Version is intentionally not sortable — version strings are too noisy
+/// Version is intentionally not sortable - version strings are too noisy
 /// across pacman/cargo/npm/pip for a meaningful comparison to be worth the UI
 /// real estate. The remaining columns are cycled together with direction by
 /// `App::cycle_sort` (the `s` key): each press advances one slot in the
@@ -63,7 +63,7 @@ impl SortColumn {
 ///
 /// Omarchy is a virtual source: its packages are technically `PackageSource::Pacman`
 /// with the `is_omarchy` flag set. We split it out here so the Tab cycle treats it
-/// as a first-class filter — matching how the user thinks about it.
+/// as a first-class filter - matching how the user thinks about it.
 pub enum SourceFilter {
     All,
     Pacman,
@@ -188,7 +188,7 @@ impl App {
     ///
     /// Each collector shells out to its package manager, which is the slow part
     /// (pacman+expac in particular). They're independent, so we run one per
-    /// thread and gather results through a channel — overall load time becomes
+    /// thread and gather results through a channel - overall load time becomes
     /// the slowest collector instead of their sum.
     pub fn load(&mut self) {
         let collectors: Vec<Box<dyn Collector + Send>> = vec![
@@ -255,7 +255,7 @@ impl App {
             .filter(|(_, pkg)| {
                 let source_match = match &self.source_filter {
                     SourceFilter::All => true,
-                    // Pacman slot deliberately excludes Omarchy — Omarchy has its own slot.
+                    // Pacman slot deliberately excludes Omarchy - Omarchy has its own slot.
                     SourceFilter::Pacman => pkg.source == PackageSource::Pacman && !pkg.is_omarchy,
                     SourceFilter::Omarchy => pkg.is_omarchy,
                     SourceFilter::Specific(s) => pkg.source == *s,
@@ -308,7 +308,7 @@ impl App {
             }
             SortColumn::Size => {
                 // Option<f64> has no Ord (NaN), so compare via partial_cmp and
-                // treat missing sizes as "smaller than anything known" — that
+                // treat missing sizes as "smaller than anything known" - that
                 // puts unknowns at the top in ascending and at the bottom in
                 // descending, which matches the natural "small → big" reading.
                 self.filtered_indices.sort_by(|a, b| {
@@ -403,7 +403,7 @@ impl App {
     }
 
     /// Populate `self.details` from the currently-selected package and switch
-    /// to `InputMode::Details`. Shells out to a package-manager tool — fast
+    /// to `InputMode::Details`. Shells out to a package-manager tool - fast
     /// for one package, but not free, so we only call this on key press.
     pub fn open_details(&mut self) {
         if let Some(pkg) = self.selected_package() {

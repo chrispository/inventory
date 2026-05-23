@@ -1,5 +1,5 @@
 //! Npm collector. Limited to globally-installed packages (`npm list -g
-//! --depth=0 --json`) — per-project node_modules are out of scope for this
+//! --depth=0 --json`) - per-project node_modules are out of scope for this
 //! tool. The JSON shape we parse is `{ "dependencies": { name: { version } } }`.
 
 use crate::collectors::Collector;

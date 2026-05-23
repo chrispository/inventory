@@ -1,12 +1,12 @@
 //! Binary entrypoint and event loop for the `inventory` TUI.
 //!
 //! Module layout:
-//! - `app` — central application state, filter/sort logic, package load.
-//! - `package` — the `Package` row struct and `PackageSource` enum.
-//! - `collectors` — one module per package manager; each implements `Collector`
+//! - `app` - central application state, filter/sort logic, package load.
+//! - `package` - the `Package` row struct and `PackageSource` enum.
+//! - `collectors` - one module per package manager; each implements `Collector`
 //!   and turns a tool's output into `Vec<Package>` during `App::load`.
-//! - `details` — lazy per-package detail fetcher behind the `d` key.
-//! - `ui` — all ratatui drawing code; no mutation of `App`.
+//! - `details` - lazy per-package detail fetcher behind the `d` key.
+//! - `ui` - all ratatui drawing code; no mutation of `App`.
 //!
 //! Control flow at runtime:
 //! 1. `main` enters the alternate screen + raw mode and calls `App::load`
@@ -69,7 +69,7 @@ fn run(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App) -> 
         match app.input_mode {
             InputMode::Search => match key.code {
                 KeyCode::Esc => app.input_mode = InputMode::Normal,
-                // Enter just leaves search mode — the filter is already applied
+                // Enter just leaves search mode - the filter is already applied
                 // because every keystroke below refilters live.
                 KeyCode::Enter => app.input_mode = InputMode::Normal,
                 // Arrow keys (and PageUp/Down) drop the user out of search and
@@ -110,7 +110,7 @@ fn run(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App) -> 
                     }
                     app.input_mode = InputMode::Normal;
                 }
-                // Any other key cancels — matches the popup hint.
+                // Any other key cancels - matches the popup hint.
                 _ => app.input_mode = InputMode::Normal,
             },
             // Details is read-only: any key dismisses the overlay.

@@ -1,4 +1,4 @@
-//! Pip collector. Reports whatever environment the on-PATH `pip` resolves to —
+//! Pip collector. Reports whatever environment the on-PATH `pip` resolves to -
 //! that means if a venv is active when inventory starts, only that venv's
 //! packages will appear. `pip list --format=json` includes transitive deps,
 //! so the "explicit" filter currently produces inflated results for pip rows
@@ -9,7 +9,7 @@ use crate::package::{Package, PackageSource};
 use std::process::Command;
 
 /// Python packages from whatever `pip` resolves to on $PATH. Note that this
-/// reports the currently-active environment — if pip is shimmed by pyenv or a
+/// reports the currently-active environment - if pip is shimmed by pyenv or a
 /// venv is active when inventory launches, only that environment's packages show.
 pub struct PipCollector;
 

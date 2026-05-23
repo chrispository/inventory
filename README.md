@@ -1,12 +1,12 @@
 # inventory
 
-A simple TUI to see every package installed on your machine — across pacman, AUR, cargo, npm globals, and pip — in one searchable, filterable list.
+A simple TUI to see every package installed on your machine - across pacman, AUR, cargo, npm globals, and pip - in one searchable, filterable list.
 
 Built for [Omarchy](https://omarchy.org), but works on any Arch-based system.
 
-You probably want to hit `e` to filter to explicitly-installed packages, then `o` twice until you see `[−Omarchy]` — that leaves you with just the things *you* installed.
+You probably want to hit `e` to filter to explicitly-installed packages, then `o` twice until you see `[−Omarchy]` - that leaves you with just the things *you* installed.
 
-`Enter` opens the package's web page (AUR / archlinux.org / crates.io / npmjs / pypi). `Shift+X` uninstalls. `d` opens a details panel.
+`Enter` opens the package's web page (AUR / archlinux.org / crates.io / npmjs / pypi). `Shift+X` uninstalls. `d` opens a details panel with dependency information.
 
 ## Keyboard shortcuts
 
@@ -24,7 +24,7 @@ You probably want to hit `e` to filter to explicitly-installed packages, then `o
 ### Filtering & sorting
 | Key | Action |
 |---|---|
-| `/` | Live search — filters as you type. `↑/↓/PgUp/PgDn` exit search and move the selection; `Enter`/`Esc` just exit search. |
+| `/` | Live search - filters as you type. `↑/↓/PgUp/PgDn` exit search and move the selection; `Enter`/`Esc` just exit search. |
 | `Esc` | (in normal mode) Clear search query |
 | `Tab` | Cycle source: All → pacman → omarchy → cargo → npm → pip → All |
 | `e` | Toggle explicit-only (pacman install reason) |
@@ -44,4 +44,6 @@ You probably want to hit `e` to filter to explicitly-installed packages, then `o
 
 [esr/inventory](https://gitlab.com/esr/inventory)
 
-<img width="871" alt="inventory screenshot" src="./screenshot.png" />
+<img width="871" alt="inventory main view" src="./screenshot.png" />
+
+<img width="871" alt="inventory details panel" src="./screenshot-details.png" />
