@@ -44,4 +44,4 @@ You probably want to hit `e` to filter to explicitly-installed packages, then `o
 
 [esr/inventory](https://gitlab.com/esr/inventory)
 
-<img width="871" height="1005" alt="image" src="https://github.com/user-attachments/assets/c8e88ed4-6c9e-45f3-a5a2-729a6ffc1e5e" />
+<img width="871" alt="inventory screenshot" src="./screenshot.png" />
